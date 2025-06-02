@@ -1,0 +1,46 @@
+on:
+    push:
+    workflow_dispatch:
+
+jobs:
+    # https://github.com/NationalSecurityAgency/ghidra/blob/master/README.md#build
+    # https://github.com/NationalSecurityAgency/ghidra/blob/HEAD/DevGuide.md
+    build-distributable:
+        name: Build Ghidra from Source
+        runs-on: ubuntu-latest
+        steps:
+        - name: Checkout Ghidra Source
+          uses: actions/checkout@v4
+        - name: Setup Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: '3.13'
+        - name: Setup Java
+          uses: actions/setup-java@v4
+          with:
+              distribution: 'temurin'
+              java-version: '21'
+              # The gradle cache is invalidated if any changes are detected to
+              # any *.gradle, gradle-wrapper.properties, gradle.properties, or
+              # gradlew files. See the following for help customizing this:
+              # https://github.com/actions/setup-java?tab=readme-ov-file#caching-packages-dependencies
+              cache: 'gradle'
+              cache-dependency-path: |
+                **/*.gradle*
+                **/gradle-wrapper.properties
+                **/gradle.properties
+                gradlew
+        - name: Download Build Dependencies
+          run: ./gradlew -I gradle/support/fetchDependencies.gradle
+        - name: Build Ghidra
+          run: ./gradlew assembleAll -PallPlatforms
+        # - name: Build Ghidra
+        #   run: ./gradlew createExternalExtensions -PallPlatforms
+        - name: Build Ghidra Distributable
+          uses: actions/upload-artifact@v4
+          with:
+              name: ghidra_dev_${{ github.ref_name }}_${{ github.sha }}
+              path: build/dist/ghidra_*
+              compression-level: '9'
+        - name: Build All
+          run: ./gradlew buildGhidra -PallPlatforms -PexternalExtensions
